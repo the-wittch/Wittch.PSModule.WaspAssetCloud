@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  module:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem -Path . -Recurse -File -Include *.ps1,*.psm1,*.psd1 |
+            Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' } |
+            ForEach-Object {
+              $tokens = $null
+              $errors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
+              foreach ($err in $errors) {
+                Write-Host "::error file=$($_.FullName),line=$($err.Extent.StartLineNumber)::$($err.Message)"
+                $failed = $true
+              }
+            }
+          if ($failed) { exit 1 }
+
+      - name: Import module and validate manifest
+        shell: pwsh
+        run: |
+          $manifest = Join-Path $PWD 'Wittch.PSModule.WaspAssetCloud.psd1'
+          Test-ModuleManifest -Path $manifest -ErrorAction Stop | Out-Null
+          Import-Module $manifest -Force -ErrorAction Stop
+          $commands = @(
+            'Set-WaspConfig',
+            'Invoke-WaspAssetInfoSearch',
+            'Invoke-WaspAdvancedAssetInfoSearch'
+          )
+          foreach ($name in $commands) {
+            if (-not (Get-Command $name -ErrorAction SilentlyContinue)) {
+              throw "Exported command not found after import: $name"
+            }
+          }
+          Write-Host "Module imported; exported commands present."
