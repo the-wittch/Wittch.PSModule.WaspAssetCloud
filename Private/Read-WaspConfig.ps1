@@ -1,8 +1,12 @@
 function Read-WaspConfig {
-    $configFile = Join-Path $PSScriptRoot '../Config/settings.json'
+    $userConfig = Join-Path (Get-WaspDataPath) 'settings.json'
+    if (Test-Path -LiteralPath $userConfig) {
+        return (Get-Content -LiteralPath $userConfig -Raw -Encoding UTF8 | ConvertFrom-Json)
+    }
 
-    if (Test-Path $configFile) {
-        return (Get-Content $configFile | ConvertFrom-Json)
+    $defaultConfig = Join-Path $script:WaspModuleRoot 'Config/settings.json'
+    if (Test-Path -LiteralPath $defaultConfig) {
+        return (Get-Content -LiteralPath $defaultConfig -Raw -Encoding UTF8 | ConvertFrom-Json)
     }
 
     return $null

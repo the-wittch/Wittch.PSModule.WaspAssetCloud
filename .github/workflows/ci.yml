@@ -39,13 +39,25 @@ jobs:
           Test-ModuleManifest -Path $manifest -ErrorAction Stop | Out-Null
           Import-Module $manifest -Force -ErrorAction Stop
           $commands = @(
-            'Set-WaspConfig',
-            'Invoke-WaspAssetInfoSearch',
+            'Set-WaspConfig'
+            'Get-WaspConfig'
+            'Remove-WaspConfig'
+            'Get-WaspAssetByTag'
+            'Invoke-WaspAssetInfoSearch'
             'Invoke-WaspAdvancedAssetInfoSearch'
+            'Get-WaspAssetCheckoutStatus'
+            'Get-WaspEmployeeCheckoutStatus'
+            'Get-WaspCustomerCheckoutStatus'
+            'Find-WaspAssetType'
+            'Find-WaspSite'
+            'Invoke-WaspAssetCheckOut'
+            'Invoke-WaspAssetCheckIn'
           )
           foreach ($name in $commands) {
-            if (-not (Get-Command $name -ErrorAction SilentlyContinue)) {
+            if (-not (Get-Command $name -Module Wittch.PSModule.WaspAssetCloud -ErrorAction SilentlyContinue)) {
               throw "Exported command not found after import: $name"
             }
           }
-          Write-Host "Module imported; exported commands present."
+          $cfg = Get-WaspConfig
+          if (-not $cfg.BaseUrl) { throw 'Get-WaspConfig returned no BaseUrl from default settings.' }
+          Write-Host "Module imported; exported commands present. Default BaseUrl=$($cfg.BaseUrl)"

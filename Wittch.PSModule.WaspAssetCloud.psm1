@@ -1,37 +1,34 @@
 <#
     .SYNOPSIS
-        WASP API PowerShell Module
+        WASP AssetCloud PowerShell Module
     .DESCRIPTION
-        Module Loader: Imports Public/Private functions & ensures API key prompt
+        Loads Public/Private functions for the WASP AssetCloud REST API.
     .NOTES
-        Version:  1.0.0
+        Version: 1.0.0
         Author:  Wittch
-        Creation Date:  07-31-2026
-        Last Update:  07-31-2026
-    .EXAMPLE
-        # See /Tests/Wittch.PSModule.SearchTest.ps1 for example usage
 #>
 
-<#
-██╗    ██╗██╗████████╗████████╗ ██████╗██╗  ██╗
-██║    ██║██║╚══██╔══╝╚══██╔══╝██╔════╝██║  ██║
-██║ █╗ ██║██║   ██║      ██║   ██║     ███████║
-██║███╗██║██║   ██║      ██║   ██║     ██╔══██║
-╚███╔███╔╝██║   ██║      ██║   ╚██████╗██║  ██║
- ╚══╝╚══╝ ╚═╝   ╚═╝      ╚═╝    ╚═════╝╚═╝  ╚═╝
-#>
+$script:WaspModuleRoot = $PSScriptRoot
+$script:WaspModuleName = 'Wittch.PSModule.WaspAssetCloud'
 
-# Import Private Functions
-Get-ChildItem -Path (Join-Path $PSScriptRoot 'Private') -Filter *.ps1 |
-    ForEach-Object { . $_.FullName }
+function Import-WaspScript {
+    param(
+        [Parameter(Mandatory)]
+        [System.IO.FileInfo]$Path
+    )
 
-# Import Public Functions
-Get-ChildItem -Path (Join-Path $PSScriptRoot 'Public') -Filter *.ps1 |
-    ForEach-Object { . $_.FullName }
-
-# Auto-prompt for API key on first load
-try {
-    $null = Get-WaspApiKey   # Will prompt the user only if missing
-} catch {
-    Write-Warning "API key missing. You will be prompted when the first API call is made."
+    try {
+        . $Path.FullName
+    }
+    catch {
+        throw "Failed to load module script '$($Path.Name)': $($_.Exception.Message)"
+    }
 }
+
+Get-ChildItem -Path (Join-Path $PSScriptRoot 'Private') -Filter '*.ps1' -ErrorAction Stop |
+    Sort-Object Name |
+    ForEach-Object { Import-WaspScript -Path $_ }
+
+Get-ChildItem -Path (Join-Path $PSScriptRoot 'Public') -Filter '*.ps1' -ErrorAction Stop |
+    Sort-Object Name |
+    ForEach-Object { Import-WaspScript -Path $_ }

@@ -1,2 +1,11 @@
-**/Config/**
-!Config/settings.json
+# Local / generated
+*.secure
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Legacy per-user folders under Config/ (pre-AppData layout)
+Config/*/

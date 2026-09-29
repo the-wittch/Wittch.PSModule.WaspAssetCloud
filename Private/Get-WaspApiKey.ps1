@@ -1,18 +1,28 @@
 function Get-WaspApiKey {
-    $userFolder = Get-WaspUserFolder
-    $keyFile = Join-Path $userFolder 'ApiKey.secure'
-
-    if (-not (Test-Path $keyFile)) {
-        Write-Host "No API key found for user $env:USERNAME." -ForegroundColor Yellow
-        $apiKey = Read-Host "Enter your Wasp API key"
-
-        Save-WaspApiKey -ApiKey $apiKey
-        Write-Host "API key saved securely for user $env:USERNAME." -ForegroundColor Green
+    # Prefer environment variable for CI / automation (never logged by this module)
+    if (-not [string]::IsNullOrWhiteSpace($env:WASP_API_KEY)) {
+        return $env:WASP_API_KEY.Trim()
     }
 
-    $encrypted = Get-Content $keyFile -Encoding UTF8
-    $secureString = ConvertTo-SecureString $encrypted
-    $plainText = [System.Net.NetworkCredential]::new("", $secureString).Password
+    $keyFile = Join-Path (Get-WaspDataPath) 'ApiKey.secure'
+    if (-not (Test-Path -LiteralPath $keyFile)) {
+        throw "No API key configured. Run Set-WaspConfig -ApiKey <key> or set the WASP_API_KEY environment variable."
+    }
 
-    return $plainText
+    $stored = (Get-Content -LiteralPath $keyFile -Raw -Encoding UTF8).Trim()
+    if ([string]::IsNullOrWhiteSpace($stored)) {
+        throw "API key file is empty. Run Set-WaspConfig -ApiKey <key>."
+    }
+
+    if (Test-WaspWindowsPlatform) {
+        try {
+            $secureString = ConvertTo-SecureString -String $stored
+            return [System.Net.NetworkCredential]::new('', $secureString).Password
+        }
+        catch {
+            throw "Failed to decrypt stored API key. Re-save it with Set-WaspConfig -ApiKey <key>. $($_.Exception.Message)"
+        }
+    }
+
+    return $stored
 }

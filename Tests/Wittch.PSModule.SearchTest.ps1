@@ -1,20 +1,24 @@
-# Test script for Wittch.PSModule.WaspAssetCloud module
+# Manual smoke test for Wittch.PSModule.WaspAssetCloud
+# Requires a real tenant URL and API key. Not run by CI.
 
-# Import the module
-$ModulePath = "$PSScriptRoot\..\Wittch.PSModule.WaspAssetCloud.psd1"
+$ModulePath = Join-Path (Join-Path $PSScriptRoot '..') 'Wittch.PSModule.WaspAssetCloud.psd1'
 Import-Module $ModulePath -Force
 
-# Set Base URL for Wasp AssetCloud
-Set-WaspConfig -BaseUrl "https://www.waspassetcloud.com/Help/Api"
+# Use your tenant root — not the /Help/Api documentation URL
+Set-WaspConfig -BaseUrl 'https://yourtenant.waspassetcloud.com'
+# Set-WaspConfig -BaseUrl 'https://yourtenant.waspassetcloud.com' -ApiKey (Read-Host 'API key')
 
-# Perform a simple asset lookup using an asset tag
-$tag = "12345"
+Get-WaspConfig | Format-List
 
-Write-Host "Searching for asset tag: $tag" -ForegroundColor Cyan
+$tag = '12345'
+Write-Host "Looking up asset tag: $tag" -ForegroundColor Cyan
 
-$result = Invoke-WaspAssetInfoSearch -SearchPattern $tag
-$result | Format-Table AssetTag, SerialNumber, Manufacturer, Model, AssetType, AssetStatus -AutoSize
+Get-WaspAssetByTag -Tag $tag |
+    Format-Table AssetTag, SerialNumber, Manufacturer, Model, AssetType, SiteName, AssetStatus -AutoSize
 
-#Invoke-WaspAssetInfoSearch -SearchPattern $tag -Raw
-
-Invoke-WaspAdvancedAssetInfoSearch -SearchPattern $tag -Raw
+# Invoke-WaspAssetInfoSearch -SearchPattern $tag
+# Get-WaspAssetCheckoutStatus -AssetTag $tag
+# Find-WaspAssetType -SearchPattern 'Laptop' -AssetClass FixedAsset
+# Find-WaspSite -SearchPattern ''
+# Invoke-WaspAssetCheckOut -AssetTag $tag -AssigneeType Employee -AssigneeNumber 'E123' -WhatIf
+# Invoke-WaspAssetCheckIn -AssetTag $tag -WhatIf

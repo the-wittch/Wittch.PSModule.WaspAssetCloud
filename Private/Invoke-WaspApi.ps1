@@ -1,51 +1,80 @@
 function Invoke-WaspApi {
+    <#
+        Shared REST client for all public WASP endpoint wrappers.
+        Add new Public/*.ps1 cmdlets that call this helper rather than
+        invoking Invoke-RestMethod directly.
+    #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [string]$Endpoint,
 
-        [ValidateSet('GET','POST')]
+        [ValidateSet('GET', 'POST', 'PUT', 'PATCH', 'DELETE')]
         [string]$Method = 'POST',
 
-        [object]$Body = $null,
+        [object]$Body,
+
+        [ValidateRange(1, 600)]
+        [int]$TimeoutSec = 60,
 
         [switch]$ThrowOnError
     )
 
-    # Load Base URL from config
     $config = Read-WaspConfig
-    if (-not $config) {
-        throw "Configuration missing. Run Set-WaspConfig first."
+    if (-not $config -or [string]::IsNullOrWhiteSpace($config.BaseUrl)) {
+        throw 'Configuration missing or BaseUrl is empty. Run Set-WaspConfig -BaseUrl https://yourtenant.waspassetcloud.com'
     }
 
-    # Load per-user encrypted API key
+    if ($config.BaseUrl -match 'waspassetcloud\.com/Help' -or $config.BaseUrl -match 'yourtenant') {
+        Write-Warning "BaseUrl looks like a docs/placeholder URL ('$($config.BaseUrl)'). Use your tenant root, e.g. https://contoso.waspassetcloud.com"
+    }
+
     $apiKey = Get-WaspApiKey
 
-    # Build request URL
-    $uri = "$($config.BaseUrl)/$Endpoint"
+    $base = $config.BaseUrl.TrimEnd('/')
+    $path = $Endpoint.TrimStart('/')
+    $uri = "$base/$path"
 
-    # Build headers
+    $version = '1.0.0'
+    if ($MyInvocation.MyCommand.Module -and $MyInvocation.MyCommand.Module.Version) {
+        $version = $MyInvocation.MyCommand.Module.Version.ToString()
+    }
+
     $headers = @{
-        "Authorization" = "Bearer $apiKey"
-        "Content-Type"  = "application/json"
+        Authorization = "Bearer $apiKey"
+        'User-Agent'  = "$script:WaspModuleName/$version"
     }
 
-    # Serialize body if present
-    if ($Body) {
-        $Body = $Body | ConvertTo-Json -Depth 10
+    $irmParams = @{
+        Uri         = $uri
+        Method      = $Method
+        Headers     = $headers
+        TimeoutSec  = $TimeoutSec
+        ErrorAction = 'Stop'
     }
 
+    if ($null -ne $Body) {
+        $irmParams['ContentType'] = 'application/json; charset=utf-8'
+        if ($Body -is [string]) {
+            $irmParams['Body'] = $Body
+        }
+        else {
+            # Use -InputObject so single-element arrays stay JSON arrays (PS 5.1 pipeline unwraps them)
+            $irmParams['Body'] = ConvertTo-Json -InputObject $Body -Depth 10 -Compress
+        }
+    }
+
+    Write-Verbose "$Method $uri"
     try {
-        # Perform API call
-        $response = Invoke-RestMethod -Uri $uri -Method $Method -Headers $headers -Body $Body
+        $response = Invoke-RestMethod @irmParams
 
-        # WASP-level result wrapper errors
         if ($response.HasError -eq $true) {
-            return Handle-WaspApiError -ResponseObject $response -Throw:$ThrowOnError
+            return Resolve-WaspApiError -ResponseObject $response -Throw:$ThrowOnError
         }
 
         return $response
     }
     catch {
-        return Handle-WaspApiError -Exception $_.Exception -Throw:$ThrowOnError
+        return Resolve-WaspApiError -Exception $_.Exception -Throw:$ThrowOnError
     }
 }
