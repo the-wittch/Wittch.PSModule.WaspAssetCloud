@@ -11,24 +11,26 @@
 $script:WaspModuleRoot = $PSScriptRoot
 $script:WaspModuleName = 'Wittch.PSModule.WaspAssetCloud'
 
-function Import-WaspScript {
-    param(
-        [Parameter(Mandatory)]
-        [System.IO.FileInfo]$Path
-    )
-
+# Dot-source at module scope (not inside a function) so cmdlets are exported.
+# A foreach STATEMENT keeps the current scope; wrapping . in a helper function would not.
+foreach ($scriptFile in @(
+        Get-ChildItem -Path (Join-Path $PSScriptRoot 'Private') -Filter '*.ps1' -ErrorAction Stop | Sort-Object Name
+    )) {
     try {
-        . $Path.FullName
+        . $scriptFile.FullName
     }
     catch {
-        throw "Failed to load module script '$($Path.Name)': $($_.Exception.Message)"
+        throw "Failed to load module script '$($scriptFile.Name)': $($_.Exception.Message)"
     }
 }
 
-Get-ChildItem -Path (Join-Path $PSScriptRoot 'Private') -Filter '*.ps1' -ErrorAction Stop |
-    Sort-Object Name |
-    ForEach-Object { Import-WaspScript -Path $_ }
-
-Get-ChildItem -Path (Join-Path $PSScriptRoot 'Public') -Filter '*.ps1' -ErrorAction Stop |
-    Sort-Object Name |
-    ForEach-Object { Import-WaspScript -Path $_ }
+foreach ($scriptFile in @(
+        Get-ChildItem -Path (Join-Path $PSScriptRoot 'Public') -Filter '*.ps1' -ErrorAction Stop | Sort-Object Name
+    )) {
+    try {
+        . $scriptFile.FullName
+    }
+    catch {
+        throw "Failed to load module script '$($scriptFile.Name)': $($_.Exception.Message)"
+    }
+}
